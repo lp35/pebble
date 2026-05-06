@@ -40,9 +40,8 @@ another user's notices.
 `
 
 type cmdNotices struct {
-	getClient func() (*client.Client, error)
-
-	socketPath string
+	withClient
+	getConfig ClientConfigFunc
 
 	timeMixin
 	Users   client.NoticesUsers `long:"users"`
@@ -66,8 +65,8 @@ func init() {
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdNotices{
-				getClient:  opts.GetClient,
-				socketPath: opts.SocketPath,
+				withClient: opts.Client,
+				getConfig:  opts.GetClientConfig,
 			}
 		},
 	})
@@ -78,7 +77,11 @@ func (cmd *cmdNotices) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	state, err := loadCLIState(cmd.socketPath)
+	cfg, err := cmd.getConfig()
+	if err != nil {
+		return fmt.Errorf("cannot get client config: %w", err)
+	}
+	state, err := loadCLIState(cfg.Socket)
 	if err != nil {
 		return fmt.Errorf("cannot load CLI state: %w", err)
 	}
@@ -141,7 +144,7 @@ func (cmd *cmdNotices) Execute(args []string) error {
 	}
 
 	state.NoticesLastListed = notices[len(notices)-1].LastRepeated
-	err = saveCLIState(cmd.socketPath, state)
+	err = saveCLIState(cfg.Socket, state)
 	if err != nil {
 		return fmt.Errorf("cannot save CLI state: %w", err)
 	}

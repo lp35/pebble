@@ -19,7 +19,6 @@ import (
 
 	"github.com/canonical/go-flags"
 
-	"github.com/canonical/pebble/client"
 )
 
 const cmdUpdateIdentitiesSummary = "Update or replace identities"
@@ -43,7 +42,7 @@ For example, to add or update "alice" and ensure "bob" is removed, use
 `
 
 type cmdUpdateIdentities struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	From    string `long:"from" required:"1"`
 	Replace bool   `long:"replace"`
@@ -59,7 +58,7 @@ func init() {
 			"--replace": "Replace (add or update) identities; remove null identities",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdUpdateIdentities{getClient: opts.GetClient}
+			return &cmdUpdateIdentities{withClient: opts.Client}
 		},
 	})
 }

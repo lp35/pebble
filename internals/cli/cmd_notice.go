@@ -31,7 +31,7 @@ by unique type and key combination (2-arg variant).
 `
 
 type cmdNotice struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	UID *uint32 `long:"uid"`
 
@@ -51,7 +51,7 @@ func init() {
 			"--uid": `Look up notice from user with this UID (admin only; 2-arg variant only)`,
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdNotice{getClient: opts.GetClient}
+			return &cmdNotice{withClient: opts.Client}
 		},
 	})
 }

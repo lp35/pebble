@@ -54,10 +54,17 @@ var ErrExtraArgs = fmt.Errorf("too many arguments for command")
 
 // CmdOptions exposes state made accessible during command execution.
 type CmdOptions struct {
-	GetClient  func() (*client.Client, error)
-	Parser     *flags.Parser
-	PebbleDir  string
-	SocketPath string
+	Client          withClient
+	GetClientConfig ClientConfigFunc
+	Parser          *flags.Parser
+	PebbleDir       string
+}
+
+// withClient is embedded in commands that need an HTTP client.
+// It is constructed once in Run() and passed through CmdOptions so that
+// commands can embed it directly without per-command construction.
+type withClient struct {
+	getClient func() (*client.Client, error)
 }
 
 // CmdInfo holds information needed by the CLI to execute commands and
@@ -151,9 +158,9 @@ type defaultOptions struct {
 }
 
 type ParserOptions struct {
-	GetClient  func() (*client.Client, error)
-	PebbleDir  string
-	SocketPath string
+	Client          withClient
+	GetClientConfig ClientConfigFunc
+	PebbleDir       string
 }
 
 // Parser creates and populates a fresh parser.
@@ -163,7 +170,7 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Implement --version by default on every command
 	defaultOpts := defaultOptions{
 		Version: func() {
-			cli, err := opts.GetClient()
+			cli, err := opts.Client.getClient()
 			if err != nil {
 				fmt.Fprintf(Stderr, "error: cannot create client: %v\n", err)
 				panic(&exitStatus{1})
@@ -196,10 +203,10 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Add all commands
 	for _, c := range commands {
 		obj := c.New(&CmdOptions{
-			GetClient:  opts.GetClient,
-			Parser:     parser,
-			PebbleDir:  opts.PebbleDir,
-			SocketPath: opts.SocketPath,
+			Client:          opts.Client,
+			GetClientConfig: opts.GetClientConfig,
+			Parser:          parser,
+			PebbleDir:       opts.PebbleDir,
 		})
 
 		var target *flags.Command
@@ -283,10 +290,20 @@ func (e *exitStatus) Error() string {
 	return fmt.Sprintf("internal error: exitStatus{%d} being handled as normal error", e.code)
 }
 
+// ConfigureCertificateFunc is called during certificate creation to allow
+// customisation of the certificate fields. The cert parameter is the
+// certificate being created, and parentCopy is a deep copy of the signing
+// (parent) certificate, or nil when the certificate is self-signed.
+// Returning an error aborts certificate creation.
+type ClientConfigFunc func() (*client.Config, error)
+
 type RunOptions struct {
-	// when starting a daemon ("pebble run"), the ClientConfig.Socket value
-	// is also used as the Unix domain socket path for the listening socket
-	ClientConfig *client.Config
+	// ClientConfig, if non-nil, is called once to obtain the configuration
+	// for the client. The returned config must not be modified by the caller
+	// after it is returned. If nil, a default config is used. When starting
+	// a daemon ("pebble run"), the config's Socket value is also used as the
+	// Unix domain socket path for the listening socket.
+	ClientConfig ClientConfigFunc
 	Logger       logger.Logger
 	PebbleDir    string
 }
@@ -299,10 +316,6 @@ func withDefaultRunOptions(opts *RunOptions) *RunOptions {
 	if opts != nil {
 		// Deep copy.
 		localOpts = *opts
-		if opts.ClientConfig != nil {
-			cpy := *opts.ClientConfig
-			localOpts.ClientConfig = &cpy
-		}
 	}
 
 	if localOpts.PebbleDir == "" {
@@ -314,18 +327,46 @@ func withDefaultRunOptions(opts *RunOptions) *RunOptions {
 	if localOpts.Logger == nil {
 		localOpts.Logger = logger.New(os.Stderr, fmt.Sprintf("[%s] ", cmd.ProgramName))
 	}
-	if localOpts.ClientConfig == nil {
-		localOpts.ClientConfig = &client.Config{}
+
+	// Wrap the user-provided functor (or a default one) so that missing
+	// Socket and BaseURL fields are filled in from environment variables.
+	// The result is memoised so the user functor runs at most once.
+	userFn := localOpts.ClientConfig
+	if userFn == nil {
+		userFn = func() (*client.Config, error) { return &client.Config{}, nil }
 	}
-	if localOpts.ClientConfig.Socket == "" {
-		localOpts.ClientConfig.Socket = os.Getenv("PEBBLE_SOCKET")
-		if localOpts.ClientConfig.Socket == "" {
-			localOpts.ClientConfig.Socket = filepath.Join(localOpts.PebbleDir, ".pebble.socket")
-		}
+	pebbleDir := localOpts.PebbleDir
+	var (
+		cfgOnce sync.Once
+		cfgVal  *client.Config
+		cfgErr  error
+	)
+	localOpts.ClientConfig = func() (*client.Config, error) {
+		cfgOnce.Do(func() {
+			cfg, err := userFn()
+			if err != nil {
+				cfgErr = err
+				return
+			}
+			if cfg == nil {
+				cfg = &client.Config{}
+			}
+			cpy := *cfg
+			if cpy.Socket == "" {
+				cpy.Socket = os.Getenv("PEBBLE_SOCKET")
+				if cpy.Socket == "" {
+					cpy.Socket = filepath.Join(pebbleDir, ".pebble.socket")
+				}
+			}
+			if cpy.BaseURL == "" {
+				cpy.BaseURL = os.Getenv("PEBBLE_BASEURL")
+			}
+			cfgVal = &cpy
+		})
+
+		return cfgVal, cfgErr
 	}
-	if localOpts.ClientConfig.BaseURL == "" {
-		localOpts.ClientConfig.BaseURL = os.Getenv("PEBBLE_BASEURL")
-	}
+
 	return &localOpts
 }
 
@@ -344,9 +385,18 @@ func Run(options *RunOptions) error {
 		}
 	}()
 
-	// Build a lazily-initialised, memoised client factory. The client is
-	// constructed at most once — on the first call to getClient() — so
-	// commands that are never executed (e.g. "pebble help") pay no cost.
+	// Resolve the client config once up-front (cheap: env-var reads + struct
+	// copy, no network I/O). This gives commands their socket path and seeds
+	// the lazy client below.
+	cfg, err := localOptions.ClientConfig()
+	if err != nil {
+		return fmt.Errorf("cannot build client config: %v", err)
+	}
+
+	// Build a lazily-initialised, memoised client factory. The actual HTTP
+	// client (including TLS transport setup) is constructed at most once,
+	// on the first call to getClient(). Commands that don't need it
+	// (e.g. "pebble help") pay no cost.
 	var (
 		clientOnce sync.Once
 		lazyClient *client.Client
@@ -354,15 +404,15 @@ func Run(options *RunOptions) error {
 	)
 	getClient := func() (*client.Client, error) {
 		clientOnce.Do(func() {
-			lazyClient, lazyErr = client.New(localOptions.ClientConfig)
+			lazyClient, lazyErr = client.New(cfg)
 		})
 		return lazyClient, lazyErr
 	}
 
 	parser := Parser(&ParserOptions{
-		GetClient:  getClient,
-		PebbleDir:  localOptions.PebbleDir,
-		SocketPath: localOptions.ClientConfig.Socket,
+		Client:          withClient{getClient: getClient},
+		GetClientConfig: localOptions.ClientConfig,
+		PebbleDir:       localOptions.PebbleDir,
 	})
 	xtra, err := parser.Parse()
 	if err != nil {
@@ -396,7 +446,7 @@ func Run(options *RunOptions) error {
 		return nil
 	}
 
-	state, err := loadCLIState(localOptions.ClientConfig.Socket)
+	state, err := loadCLIState(cfg.Socket)
 	if err != nil {
 		return fmt.Errorf("cannot load CLI state: %w", err)
 	}

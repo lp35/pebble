@@ -31,7 +31,7 @@ an exit code 1 if at least one of the requested checks are unhealthy.
 `
 
 type cmdHealth struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	//lint:ignore SA5008 "choice" tag is intentionally duplicated
 	Level      string `long:"level" choice:"alive" choice:"ready"`
@@ -51,7 +51,7 @@ func init() {
 		Description: cmdHealthDescription,
 		ArgsHelp:    cmdHealthArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdHealth{getClient: opts.GetClient}
+			return &cmdHealth{withClient: opts.Client}
 		},
 	})
 }

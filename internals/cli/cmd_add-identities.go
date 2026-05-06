@@ -52,7 +52,7 @@ Use "openssl passwd -6" to generate a hashed password (sha512-crypt format).
 `
 
 type cmdAddIdentities struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	From string `long:"from" required:"1"`
 }
@@ -66,7 +66,7 @@ func init() {
 			"--from": "Path of YAML file to read identities from (required)",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdAddIdentities{getClient: opts.GetClient}
+			return &cmdAddIdentities{withClient: opts.Client}
 		},
 	})
 }

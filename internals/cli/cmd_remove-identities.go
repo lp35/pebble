@@ -19,7 +19,6 @@ import (
 
 	"github.com/canonical/go-flags"
 
-	"github.com/canonical/pebble/client"
 )
 
 const cmdRemoveIdentitiesSummary = "Remove identities"
@@ -35,7 +34,7 @@ the YAML input. For example, to remove "alice" and "bob", use this YAML:
 `
 
 type cmdRemoveIdentities struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	From string `long:"from" required:"1"`
 }
@@ -49,7 +48,7 @@ func init() {
 			"--from": "Path of YAML file to read identities from (required)",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdRemoveIdentities{getClient: opts.GetClient}
+			return &cmdRemoveIdentities{withClient: opts.Client}
 		},
 	})
 }

@@ -31,7 +31,7 @@ will again show up until the next '{{.ProgramName}} okay'.
 `
 
 type cmdOkay struct {
-	socketPath string
+	getConfig ClientConfigFunc
 
 	Warnings bool `long:"warnings"`
 }
@@ -43,7 +43,7 @@ func init() {
 		Description: cmdOkayDescription,
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdOkay{
-				socketPath: opts.SocketPath,
+				getConfig: opts.GetClientConfig,
 			}
 		},
 		ArgsHelp: map[string]string{
@@ -57,7 +57,11 @@ func (cmd *cmdOkay) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	state, err := loadCLIState(cmd.socketPath)
+	cfg, err := cmd.getConfig()
+	if err != nil {
+		return fmt.Errorf("cannot get client config: %w", err)
+	}
+	state, err := loadCLIState(cfg.Socket)
 	if err != nil {
 		return fmt.Errorf("cannot load CLI state: %w", err)
 	}
@@ -76,7 +80,7 @@ func (cmd *cmdOkay) Execute(args []string) error {
 		}
 	}
 
-	err = saveCLIState(cmd.socketPath, state)
+	err = saveCLIState(cfg.Socket, state)
 	if err != nil {
 		return fmt.Errorf("cannot save CLI state: %w", err)
 	}

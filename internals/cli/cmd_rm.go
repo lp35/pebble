@@ -26,7 +26,7 @@ The rm command removes a file or directory.
 `
 
 type cmdRm struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	Recursive  bool `short:"r"`
 	Positional struct {
@@ -43,7 +43,7 @@ func init() {
 			"-r": "Remove all files and directories recursively in the specified path",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdRm{getClient: opts.GetClient}
+			return &cmdRm{withClient: opts.Client}
 		},
 	})
 }

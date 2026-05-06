@@ -27,7 +27,7 @@ any other services it depends on, in the correct order.
 `
 
 type cmdStart struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	waitMixin
 	Positional struct {
@@ -42,7 +42,7 @@ func init() {
 		Description: cmdStartDescription,
 		ArgsHelp:    waitArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdStart{getClient: opts.GetClient}
+			return &cmdStart{withClient: opts.Client}
 		},
 	})
 }

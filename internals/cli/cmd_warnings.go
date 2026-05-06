@@ -40,9 +40,8 @@ Warnings expire automatically, and once expired they are forgotten.
 `
 
 type cmdWarnings struct {
-	getClient func() (*client.Client, error)
-
-	socketPath string
+	withClient
+	getConfig ClientConfigFunc
 
 	timeMixin
 	unicodeMixin
@@ -61,8 +60,8 @@ func init() {
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdWarnings{
-				getClient:  opts.GetClient,
-				socketPath: opts.SocketPath,
+				withClient: opts.Client,
+				getConfig:  opts.GetClientConfig,
 			}
 		},
 	})
@@ -73,13 +72,17 @@ func (cmd *cmdWarnings) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
+	cfg, err := cmd.getConfig()
+	if err != nil {
+		return fmt.Errorf("cannot get client config: %w", err)
+	}
+
 	options := &client.NoticesOptions{
 		Types: []client.NoticeType{client.WarningNotice},
 	}
 	var state *cliState
 	if !cmd.All {
-		var err error
-		state, err = loadCLIState(cmd.socketPath)
+		state, err = loadCLIState(cfg.Socket)
 		if err != nil {
 			return fmt.Errorf("cannot load CLI state: %w", err)
 		}
@@ -131,7 +134,7 @@ func (cmd *cmdWarnings) Execute(args []string) error {
 
 	if !cmd.All {
 		state.WarningsLastListed = warnings[len(warnings)-1].LastRepeated
-		err = saveCLIState(cmd.socketPath, state)
+		err = saveCLIState(cfg.Socket, state)
 		if err != nil {
 			return fmt.Errorf("cannot save CLI state: %w", err)
 		}

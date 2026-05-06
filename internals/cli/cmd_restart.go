@@ -26,7 +26,7 @@ The restart command restarts the named service(s) in the correct order.
 `
 
 type cmdRestart struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	waitMixin
 	Positional struct {
@@ -41,7 +41,7 @@ func init() {
 		Description: cmdRestartDescription,
 		ArgsHelp:    waitArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdRestart{getClient: opts.GetClient}
+			return &cmdRestart{withClient: opts.Client}
 		},
 	})
 }

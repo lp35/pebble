@@ -155,18 +155,24 @@ func (s *PebbleSuite) TestRunOptionApplyDefaults(c *C) {
 	os.Setenv("PEBBLE_SOCKET", "")
 	r := cli.WithDefaultRunOptions(nil)
 	c.Assert(r.PebbleDir, Equals, "/var/lib/pebble/default")
-	c.Assert(r.ClientConfig.Socket, Equals, "/var/lib/pebble/default/.pebble.socket")
+	cfg, err := r.ClientConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.Socket, Equals, "/var/lib/pebble/default/.pebble.socket")
 
 	os.Setenv("PEBBLE", "/foo")
 	r = cli.WithDefaultRunOptions(nil)
 	c.Assert(r.PebbleDir, Equals, "/foo")
-	c.Assert(r.ClientConfig.Socket, Equals, "/foo/.pebble.socket")
+	cfg, err = r.ClientConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.Socket, Equals, "/foo/.pebble.socket")
 
 	os.Setenv("PEBBLE", "/bar")
 	os.Setenv("PEBBLE_SOCKET", "/path/to/socket")
 	r = cli.WithDefaultRunOptions(nil)
 	c.Assert(r.PebbleDir, Equals, "/bar")
-	c.Assert(r.ClientConfig.Socket, Equals, "/path/to/socket")
+	cfg, err = r.ClientConfig()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.Socket, Equals, "/path/to/socket")
 }
 
 func (s *BasePebbleSuite) readCLIState(c *C) map[string]any {
@@ -182,21 +188,25 @@ func (s *BasePebbleSuite) readCLIState(c *C) map[string]any {
 	}
 
 	r := cli.WithDefaultRunOptions(nil)
-	v, ok := socketMap[r.ClientConfig.Socket]
+	cfg, err := r.ClientConfig()
+	c.Assert(err, IsNil)
+	v, ok := socketMap[cfg.Socket]
 	if !ok {
-		c.Fatalf("expected state map, got %#v", socketMap[r.ClientConfig.Socket])
+		c.Fatalf("expected state map, got %#v", socketMap[cfg.Socket])
 	}
 	return v.(map[string]any)
 }
 
 func (s *BasePebbleSuite) writeCLIState(c *C, st map[string]any) {
 	r := cli.WithDefaultRunOptions(nil)
+	cfg, err := r.ClientConfig()
+	c.Assert(err, IsNil)
 	fullState := map[string]any{
 		"pebble": map[string]any{
-			r.ClientConfig.Socket: st,
+			cfg.Socket: st,
 		},
 	}
-	err := os.MkdirAll(filepath.Dir(s.cliStatePath), 0o700)
+	err = os.MkdirAll(filepath.Dir(s.cliStatePath), 0o700)
 	c.Assert(err, IsNil)
 	data, err := json.Marshal(fullState)
 	c.Assert(err, IsNil)

@@ -38,7 +38,7 @@ subcommand for details):
 `
 
 type cmdIdentities struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	formatMixin
 }
@@ -50,7 +50,7 @@ func init() {
 		Description: cmdIdentitiesDescription,
 		ArgsHelp:    formatArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdIdentities{getClient: opts.GetClient}
+			return &cmdIdentities{withClient: opts.Client}
 		},
 	})
 }

@@ -73,10 +73,10 @@ var sharedRunEnterArgsHelp = map[string]string{
 }
 
 type cmdRun struct {
-	getClient func() (*client.Client, error)
+	withClient
+	getConfig ClientConfigFunc
 
-	socketPath string
-	pebbleDir  string
+	pebbleDir string
 
 	sharedRunEnterOpts
 }
@@ -89,8 +89,8 @@ func init() {
 		ArgsHelp:    sharedRunEnterArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdRun{
-				getClient:  opts.GetClient,
-				socketPath: opts.SocketPath,
+				withClient: opts.Client,
+				getConfig:  opts.GetClientConfig,
 				pebbleDir:  opts.PebbleDir,
 			}
 		},
@@ -200,9 +200,14 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 		return err
 	}
 
+	cfg, err := rcmd.getConfig()
+	if err != nil {
+		return fmt.Errorf("cannot get client config: %w", err)
+	}
+
 	dopts := daemon.Options{
 		Dir:          rcmd.pebbleDir,
-		SocketPath:   rcmd.socketPath,
+		SocketPath:   cfg.Socket,
 		TLSOptions:   tlsstate.Options{Signer: idSigner},
 		HTTPAddress:  rcmd.HTTP,
 		HTTPSAddress: rcmd.HTTPS,

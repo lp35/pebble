@@ -28,7 +28,7 @@ func RunMain() error {
 
 func RunOptionsForTest() *RunOptions {
 	o := &RunOptions{
-		ClientConfig: newClientConfig(),
+		ClientConfig: newClientConfig,
 	}
 	return withDefaultRunOptions(o)
 }
@@ -42,15 +42,19 @@ func FakeClientConfigBaseURL(baseURL string) (restore func()) {
 	}
 }
 
-func newClientConfig() *client.Config {
+func newClientConfig() (*client.Config, error) {
 	config := client.Config{BaseURL: clientConfigBaseURL}
-	return &config
+	return &config, nil
 }
 
 func Client() *client.Client {
-	cli, err := client.New(newClientConfig())
+	cfg, err := newClientConfig()
 	if err != nil {
-		panic("cannot create client:" + err.Error())
+		panic("cannot build client config: " + err.Error())
+	}
+	cli, err := client.New(cfg)
+	if err != nil {
+		panic("cannot create client: " + err.Error())
 	}
 	return cli
 }
@@ -111,10 +115,23 @@ func ParserForTest() *flags.Parser {
 	runOpts := RunOptionsForTest()
 
 	return Parser(&ParserOptions{
-		GetClient: func() (*client.Client, error) {
+		Client: withClient{getClient: func() (*client.Client, error) {
 			return Client(), nil
-		},
-		SocketPath: runOpts.ClientConfig.Socket,
-		PebbleDir:  runOpts.PebbleDir,
+		}},
+		GetClientConfig: runOpts.ClientConfig,
+		PebbleDir:       runOpts.PebbleDir,
+	})
+}
+
+// ParserWithClientForTest creates a test parser that uses the given client
+// directly, for tests that need to inspect the specific client instance.
+func ParserWithClientForTest(c *client.Client) *flags.Parser {
+	runOpts := RunOptionsForTest()
+	return Parser(&ParserOptions{
+		Client: withClient{getClient: func() (*client.Client, error) {
+			return c, nil
+		}},
+		GetClientConfig: runOpts.ClientConfig,
+		PebbleDir:       runOpts.PebbleDir,
 	})
 }

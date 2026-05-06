@@ -32,7 +32,7 @@ name must be uppercase, for example:
 `
 
 type cmdSignal struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	Positional struct {
 		Signal   string   `positional-arg-name:"<SIGNAL>"`
@@ -46,7 +46,7 @@ func init() {
 		Summary:     cmdSignalSummary,
 		Description: cmdSignalDescription,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdSignal{getClient: opts.GetClient}
+			return &cmdSignal{withClient: opts.Client}
 		},
 	})
 }

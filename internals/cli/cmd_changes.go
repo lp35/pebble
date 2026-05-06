@@ -31,7 +31,7 @@ The changes command displays a summary of system changes performed recently.
 `
 
 type cmdChanges struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	timeMixin
 	formatMixin
@@ -47,7 +47,7 @@ change that happened recently.
 `
 
 type cmdTasks struct {
-	getClient func() (*client.Client, error)
+	withClient
 
 	timeMixin
 	formatMixin
@@ -61,7 +61,7 @@ func init() {
 		Description: cmdChangesDescription,
 		ArgsHelp:    merge(timeArgsHelp, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdChanges{getClient: opts.GetClient}
+			return &cmdChanges{withClient: opts.Client}
 		},
 	})
 	AddCommand(&CmdInfo{
@@ -70,7 +70,7 @@ func init() {
 		Description: cmdTasksDescription,
 		ArgsHelp:    merge(changeIDMixinArgsHelp, timeArgsHelp, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdTasks{getClient: opts.GetClient}
+			return &cmdTasks{withClient: opts.Client}
 		},
 	})
 }

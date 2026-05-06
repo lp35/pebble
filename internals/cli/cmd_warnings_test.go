@@ -22,7 +22,6 @@ import (
 
 	"gopkg.in/check.v1"
 
-	"github.com/canonical/pebble/client"
 	"github.com/canonical/pebble/internals/cli"
 )
 
@@ -208,14 +207,7 @@ func (s *warningSuite) TestCommandWithWarnings(c *check.C) {
 		} else {
 			responseTimestamp = time.Date(2018, 9, 19, 12, 44, 19, 680362867, time.UTC)
 		}
-		runOpts := cli.RunOptionsForTest()
-		rest, err := cli.Parser(&cli.ParserOptions{
-			GetClient: func() (*client.Client, error) {
-				return pebbleClient, nil
-			},
-			SocketPath: runOpts.ClientConfig.Socket,
-			PebbleDir:  runOpts.PebbleDir,
-		}).ParseArgs([]string{"version"})
+		rest, err := cli.ParserWithClientForTest(pebbleClient).ParseArgs([]string{"version"})
 		c.Assert(err, check.IsNil)
 
 		latest := pebbleClient.LatestWarningTime()
