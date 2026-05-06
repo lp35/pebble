@@ -35,7 +35,7 @@ the YAML input. For example, to remove "alice" and "bob", use this YAML:
 `
 
 type cmdRemoveIdentities struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	From string `long:"from" required:"1"`
 }
@@ -49,7 +49,7 @@ func init() {
 			"--from": "Path of YAML file to read identities from (required)",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdRemoveIdentities{client: opts.Client}
+			return &cmdRemoveIdentities{getClient: opts.GetClient}
 		},
 	})
 }
@@ -70,7 +70,11 @@ func (cmd *cmdRemoveIdentities) Execute(args []string) error {
 		}
 		identityNames[name] = struct{}{}
 	}
-	err = cmd.client.RemoveIdentities(identityNames)
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
+	err = cli.RemoveIdentities(identityNames)
 	if err != nil {
 		return err
 	}

@@ -111,7 +111,9 @@ func ParserForTest() *flags.Parser {
 	runOpts := RunOptionsForTest()
 
 	return Parser(&ParserOptions{
-		Client:     Client(),
+		GetClient: func() (*client.Client, error) {
+			return Client(), nil
+		},
 		SocketPath: runOpts.ClientConfig.Socket,
 		PebbleDir:  runOpts.PebbleDir,
 	})

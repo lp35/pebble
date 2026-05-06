@@ -73,7 +73,7 @@ var sharedRunEnterArgsHelp = map[string]string{
 }
 
 type cmdRun struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	socketPath string
 	pebbleDir  string
@@ -89,7 +89,7 @@ func init() {
 		ArgsHelp:    sharedRunEnterArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdRun{
-				client:     opts.Client,
+				getClient:  opts.GetClient,
 				socketPath: opts.SocketPath,
 				pebbleDir:  opts.PebbleDir,
 			}
@@ -265,7 +265,11 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 		if err != nil {
 			return fmt.Errorf("cannot read identities: %w", err)
 		}
-		err = rcmd.client.ReplaceIdentities(identities)
+		cli, err := rcmd.getClient()
+		if err != nil {
+			return err
+		}
+		err = cli.ReplaceIdentities(identities)
 		if err != nil {
 			return fmt.Errorf("cannot replace identities: %w", err)
 		}
@@ -283,8 +287,12 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 
 	if !rcmd.Hold {
 		// Start the default services (those configured with startup: enabled).
+		cli, err := rcmd.getClient()
+		if err != nil {
+			return err
+		}
 		servopts := client.ServiceOptions{}
-		changeID, err := rcmd.client.AutoStart(&servopts)
+		changeID, err := cli.AutoStart(&servopts)
 		if err != nil {
 			logger.Noticef("Cannot start default services: %v", err)
 		} else {
@@ -292,7 +300,7 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 			// the ready channel (for the "enter" command).
 			go func() {
 				logger.Debugf("Waiting for default services to autostart with change %s.", changeID)
-				_, err := rcmd.client.WaitChange(changeID, nil)
+				_, err := cli.WaitChange(changeID, nil)
 				if err != nil {
 					logger.Noticef("Cannot wait for autostart change %s: %v", changeID, err)
 				} else {
@@ -330,7 +338,9 @@ out:
 	// Close the client idle connection to the server (self connection) before we
 	// start with the HTTP/HTTPS shutdown process. This will speed up the server
 	// shutdown, and allow the Pebble process to exit faster.
-	rcmd.client.CloseIdleConnections()
+	if cli, err := rcmd.getClient(); err == nil {
+		cli.CloseIdleConnections()
+	}
 
 	return d.Stop(ch)
 }

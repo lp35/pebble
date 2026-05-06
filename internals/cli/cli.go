@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -53,7 +54,7 @@ var ErrExtraArgs = fmt.Errorf("too many arguments for command")
 
 // CmdOptions exposes state made accessible during command execution.
 type CmdOptions struct {
-	Client     *client.Client
+	GetClient  func() (*client.Client, error)
 	Parser     *flags.Parser
 	PebbleDir  string
 	SocketPath string
@@ -150,7 +151,7 @@ type defaultOptions struct {
 }
 
 type ParserOptions struct {
-	Client     *client.Client
+	GetClient  func() (*client.Client, error)
 	PebbleDir  string
 	SocketPath string
 }
@@ -162,7 +163,12 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Implement --version by default on every command
 	defaultOpts := defaultOptions{
 		Version: func() {
-			printVersions(opts.Client)
+			cli, err := opts.GetClient()
+			if err != nil {
+				fmt.Fprintf(Stderr, "error: cannot create client: %v\n", err)
+				panic(&exitStatus{1})
+			}
+			printVersions(cli)
 			panic(&exitStatus{0})
 		},
 	}
@@ -190,7 +196,7 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Add all commands
 	for _, c := range commands {
 		obj := c.New(&CmdOptions{
-			Client:     opts.Client,
+			GetClient:  opts.GetClient,
 			Parser:     parser,
 			PebbleDir:  opts.PebbleDir,
 			SocketPath: opts.SocketPath,
@@ -338,12 +344,23 @@ func Run(options *RunOptions) error {
 		}
 	}()
 
-	cli, err := client.New(localOptions.ClientConfig)
-	if err != nil {
-		return fmt.Errorf("cannot create client: %v", err)
+	// Build a lazily-initialised, memoised client factory. The client is
+	// constructed at most once — on the first call to getClient() — so
+	// commands that are never executed (e.g. "pebble help") pay no cost.
+	var (
+		clientOnce sync.Once
+		lazyClient *client.Client
+		lazyErr    error
+	)
+	getClient := func() (*client.Client, error) {
+		clientOnce.Do(func() {
+			lazyClient, lazyErr = client.New(localOptions.ClientConfig)
+		})
+		return lazyClient, lazyErr
 	}
+
 	parser := Parser(&ParserOptions{
-		Client:     cli,
+		GetClient:  getClient,
 		PebbleDir:  localOptions.PebbleDir,
 		SocketPath: localOptions.ClientConfig.Socket,
 	})
@@ -383,7 +400,11 @@ func Run(options *RunOptions) error {
 	if err != nil {
 		return fmt.Errorf("cannot load CLI state: %w", err)
 	}
-	maybePresentWarnings(state.WarningsLastListed, cli.LatestWarningTime())
+	// Only check for warnings if a client was already materialised during
+	// command execution; avoid constructing one just for this check.
+	if lazyClient != nil {
+		maybePresentWarnings(state.WarningsLastListed, lazyClient.LatestWarningTime())
+	}
 
 	return nil
 }

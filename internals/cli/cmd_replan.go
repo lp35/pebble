@@ -28,7 +28,7 @@ configuration in the current plan.
 `
 
 type cmdReplan struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	waitMixin
 }
@@ -40,7 +40,7 @@ func init() {
 		Description: cmdReplanDescription,
 		ArgsHelp:    waitArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdReplan{client: opts.Client}
+			return &cmdReplan{getClient: opts.GetClient}
 		},
 	})
 }
@@ -50,13 +50,17 @@ func (cmd cmdReplan) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	servopts := client.ServiceOptions{}
-	changeID, err := cmd.client.Replan(&servopts)
+	changeID, err := cli.Replan(&servopts)
 	if err != nil {
 		return err
 	}
 
-	if _, err := cmd.wait(cmd.client, changeID); err != nil {
+	if _, err := cmd.wait(cli, changeID); err != nil {
 		if err == noWait {
 			return nil
 		}

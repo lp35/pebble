@@ -31,7 +31,7 @@ data fields.
 `
 
 type cmdNotify struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	RepeatAfter time.Duration `long:"repeat-after"`
 	Positional  struct {
@@ -49,7 +49,7 @@ func init() {
 			"--repeat-after": "Prevent notice with same type and key from reoccurring within this duration",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdNotify{client: opts.Client}
+			return &cmdNotify{getClient: opts.GetClient}
 		},
 	})
 }
@@ -73,7 +73,11 @@ func (cmd *cmdNotify) Execute(args []string) error {
 		RepeatAfter: cmd.RepeatAfter,
 		Data:        data,
 	}
-	noticeId, err := cmd.client.Notify(&options)
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
+	noticeId, err := cli.Notify(&options)
 	if err != nil {
 		return err
 	}

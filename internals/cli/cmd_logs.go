@@ -34,7 +34,7 @@ if none are specified) and displays them in chronological order.
 `
 
 type cmdLogs struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	Follow bool   `short:"f" long:"follow"`
 	N      string `short:"n"`
@@ -56,7 +56,7 @@ func init() {
 			"-n":       "Number of logs to show (before following); defaults to 30.\nIf 'all', show all buffered logs.",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdLogs{client: opts.Client}
+			return &cmdLogs{getClient: opts.GetClient}
 		},
 	})
 }
@@ -108,9 +108,17 @@ func (cmd *cmdLogs) Execute(args []string) error {
 		// Stop following when Ctrl-C pressed (SIGINT).
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
-		err = cmd.client.FollowLogs(ctx, &opts)
+		cli, err := cmd.getClient()
+		if err != nil {
+			return err
+		}
+		err = cli.FollowLogs(ctx, &opts)
 	} else {
-		err = cmd.client.Logs(&opts)
+		cli, err := cmd.getClient()
+		if err != nil {
+			return err
+		}
+		err = cli.Logs(&opts)
 	}
 	return err
 }

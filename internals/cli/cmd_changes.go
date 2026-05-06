@@ -31,7 +31,7 @@ The changes command displays a summary of system changes performed recently.
 `
 
 type cmdChanges struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	timeMixin
 	formatMixin
@@ -47,7 +47,7 @@ change that happened recently.
 `
 
 type cmdTasks struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	timeMixin
 	formatMixin
@@ -61,7 +61,7 @@ func init() {
 		Description: cmdChangesDescription,
 		ArgsHelp:    merge(timeArgsHelp, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdChanges{client: opts.Client}
+			return &cmdChanges{getClient: opts.GetClient}
 		},
 	})
 	AddCommand(&CmdInfo{
@@ -70,7 +70,7 @@ func init() {
 		Description: cmdTasksDescription,
 		ArgsHelp:    merge(changeIDMixinArgsHelp, timeArgsHelp, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdTasks{client: opts.Client}
+			return &cmdTasks{getClient: opts.GetClient}
 		},
 	})
 }
@@ -113,7 +113,11 @@ func (c *cmdChanges) Execute(args []string) error {
 		Selector:    client.ChangesAll,
 	}
 
-	changes, err := queryChanges(c.client, &opts)
+	cli, err := c.getClient()
+	if err != nil {
+		return err
+	}
+	changes, err := queryChanges(cli, &opts)
 	if err != nil {
 		return err
 	}
@@ -158,7 +162,11 @@ func (c *cmdChanges) writeText(changes []*client.Change) error {
 }
 
 func (c *cmdTasks) Execute([]string) error {
-	chid, err := c.GetChangeID(c.client)
+	cli, err := c.getClient()
+	if err != nil {
+		return err
+	}
+	chid, err := c.GetChangeID(cli)
 	if err != nil {
 		if err == noChangeFoundOK {
 			return nil
@@ -166,7 +174,7 @@ func (c *cmdTasks) Execute([]string) error {
 		return err
 	}
 
-	return c.showChange(chid)
+	return c.showChange(cli, chid)
 }
 
 func queryChange(cli *client.Client, chid string) (*client.Change, error) {
@@ -180,8 +188,8 @@ func queryChange(cli *client.Client, chid string) (*client.Change, error) {
 	return chg, nil
 }
 
-func (c *cmdTasks) showChange(chid string) error {
-	chg, err := queryChange(c.client, chid)
+func (c *cmdTasks) showChange(cli *client.Client, chid string) error {
+	chg, err := queryChange(cli, chid)
 	if err != nil {
 		return err
 	}

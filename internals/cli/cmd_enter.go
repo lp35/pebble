@@ -48,7 +48,7 @@ These subcommands are currently supported:
 `
 
 type cmdEnter struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 	parser *flags.Parser
 
 	pebbleDir  string
@@ -68,7 +68,7 @@ func init() {
 		Description: cmdEnterDescription,
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdEnter{
-				client:     opts.Client,
+				getClient:  opts.GetClient,
 				parser:     opts.Parser,
 				pebbleDir:  opts.PebbleDir,
 				socketPath: opts.SocketPath,
@@ -127,7 +127,7 @@ func (cmd *cmdEnter) Execute(args []string) error {
 
 	runCmd := cmdRun{
 		sharedRunEnterOpts: cmd.sharedRunEnterOpts,
-		client:             cmd.client,
+		getClient:          cmd.getClient,
 		pebbleDir:          cmd.pebbleDir,
 		socketPath:         cmd.socketPath,
 	}
@@ -145,7 +145,7 @@ func (cmd *cmdEnter) Execute(args []string) error {
 	)
 
 	parser := Parser(&ParserOptions{
-		Client:     cmd.client,
+		GetClient:  cmd.getClient,
 		PebbleDir:  cmd.pebbleDir,
 		SocketPath: cmd.socketPath,
 	})

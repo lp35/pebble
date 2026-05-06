@@ -29,7 +29,7 @@ about all services if none are specified.
 `
 
 type cmdServices struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	formatMixin
 	timeMixin
@@ -45,7 +45,7 @@ func init() {
 		Description: cmdServicesDescription,
 		ArgsHelp:    merge(timeArgsHelp, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdServices{client: opts.Client}
+			return &cmdServices{getClient: opts.GetClient}
 		},
 	})
 }
@@ -55,10 +55,14 @@ func (cmd *cmdServices) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	opts := client.ServicesOptions{
 		Names: cmd.Positional.Services,
 	}
-	services, err := cmd.client.Services(&opts)
+	services, err := cli.Services(&opts)
 	if err != nil {
 		return err
 	}

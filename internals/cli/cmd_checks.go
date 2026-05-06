@@ -32,7 +32,7 @@ arguments.
 `
 
 type cmdChecks struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	formatMixin
 	//lint:ignore SA5008 "choice" tag is intentionally duplicated
@@ -51,7 +51,7 @@ func init() {
 			"--level": "Check level to filter for",
 		}, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdChecks{client: opts.Client}
+			return &cmdChecks{getClient: opts.GetClient}
 		},
 	})
 }
@@ -61,11 +61,15 @@ func (cmd *cmdChecks) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	opts := client.ChecksOptions{
 		Level: client.CheckLevel(cmd.Level),
 		Names: cmd.Positional.Checks,
 	}
-	checks, err := cmd.client.Checks(&opts)
+	checks, err := cli.Checks(&opts)
 	if err != nil {
 		return err
 	}
@@ -79,7 +83,7 @@ func (cmd *cmdChecks) Execute(args []string) error {
 			}
 			return nil
 		}
-		return cmd.writeText(checks)
+		return cmd.writeText(cli, checks)
 	}
 
 	checkMap := make(map[string]*client.CheckInfo, len(checks))
@@ -93,7 +97,7 @@ type checksMap struct {
 	Checks map[string]*client.CheckInfo `json:"checks" yaml:"checks"`
 }
 
-func (cmd *cmdChecks) writeText(checks []*client.CheckInfo) error {
+func (cmd *cmdChecks) writeText(cli *client.Client, checks []*client.CheckInfo) error {
 	w := tabWriter()
 	defer w.Flush()
 
@@ -117,12 +121,12 @@ func (cmd *cmdChecks) writeText(checks []*client.CheckInfo) error {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			check.Name, level, check.Startup, check.Status, successes, failures,
-			cmd.changeInfo(check))
+			cmd.changeInfo(cli, check))
 	}
 	return nil
 }
 
-func (cmd *cmdChecks) changeInfo(check *client.CheckInfo) string {
+func (cmd *cmdChecks) changeInfo(cli *client.Client, check *client.CheckInfo) string {
 	if check.ChangeID == "" {
 		return "-"
 	}
@@ -132,13 +136,13 @@ func (cmd *cmdChecks) changeInfo(check *client.CheckInfo) string {
 	}
 	// Try current change first, fall back to previous change if no logs.
 	logChangeID := check.ChangeID
-	log, err := cmd.lastTaskLog(logChangeID)
+	log, err := cmd.lastTaskLog(cli, logChangeID)
 	if err != nil {
 		return fmt.Sprintf("%s (%v)", check.ChangeID, err)
 	}
 	if log == "" && check.PrevChangeID != "" {
 		logChangeID = check.PrevChangeID
-		log, err = cmd.lastTaskLog(logChangeID)
+		log, err = cmd.lastTaskLog(cli, logChangeID)
 		if err != nil {
 			return fmt.Sprintf("%s (%v)", check.ChangeID, err)
 		}
@@ -155,8 +159,8 @@ func (cmd *cmdChecks) changeInfo(check *client.CheckInfo) string {
 	return fmt.Sprintf("%s (%s)", check.ChangeID, log)
 }
 
-func (cmd *cmdChecks) lastTaskLog(changeID string) (string, error) {
-	change, err := cmd.client.Change(changeID)
+func (cmd *cmdChecks) lastTaskLog(cli *client.Client, changeID string) (string, error) {
+	change, err := cli.Change(changeID)
 	if err != nil {
 		return "", err
 	}

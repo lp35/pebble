@@ -30,7 +30,7 @@ The check command shows details for a single check.
 `
 
 type cmdCheck struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	formatMixin
 	Refresh bool `long:"refresh"`
@@ -56,7 +56,7 @@ func init() {
 			"--refresh": "Run the check immediately",
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdCheck{client: opts.Client}
+			return &cmdCheck{getClient: opts.GetClient}
 		},
 	})
 }
@@ -66,12 +66,16 @@ func (cmd *cmdCheck) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	var info checkInfo
 	if cmd.Refresh {
 		opts := client.RefreshCheckOptions{
 			Name: cmd.Positional.Check,
 		}
-		res, err := cmd.client.RefreshCheck(&opts)
+		res, err := cli.RefreshCheck(&opts)
 		if err != nil {
 			return err
 		}
@@ -82,7 +86,7 @@ func (cmd *cmdCheck) Execute(args []string) error {
 		opts := client.ChecksOptions{
 			Names: []string{cmd.Positional.Check},
 		}
-		checks, err := cmd.client.Checks(&opts)
+		checks, err := cli.Checks(&opts)
 		if err != nil {
 			return err
 		}
@@ -94,12 +98,12 @@ func (cmd *cmdCheck) Execute(args []string) error {
 
 	if info.Failures > 0 || info.Error != "" {
 		if info.ChangeID != "" {
-			logs, err := cmd.taskLogs(info.ChangeID)
+			logs, err := cmd.taskLogs(cli, info.ChangeID)
 			if err != nil {
 				return fmt.Errorf("cannot get task logs for change %s: %w", info.ChangeID, err)
 			}
 			if logs == "" && info.PrevChangeID != "" {
-				logs, err = cmd.taskLogs(info.PrevChangeID)
+				logs, err = cmd.taskLogs(cli, info.PrevChangeID)
 				if err != nil {
 					return fmt.Errorf("cannot get task logs for change %s: %w", info.PrevChangeID, err)
 				}
@@ -124,8 +128,8 @@ func (cmd *cmdCheck) writeText(info checkInfo) error {
 	return nil
 }
 
-func (cmd *cmdCheck) taskLogs(changeID string) (string, error) {
-	change, err := cmd.client.Change(changeID)
+func (cmd *cmdCheck) taskLogs(cli *client.Client, changeID string) (string, error) {
+	change, err := cli.Change(changeID)
 	if err != nil {
 		return "", err
 	}

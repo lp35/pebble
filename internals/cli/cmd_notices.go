@@ -40,7 +40,7 @@ another user's notices.
 `
 
 type cmdNotices struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	socketPath string
 
@@ -66,7 +66,7 @@ func init() {
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdNotices{
-				client:     opts.Client,
+				getClient:  opts.GetClient,
 				socketPath: opts.SocketPath,
 			}
 		},
@@ -91,12 +91,16 @@ func (cmd *cmdNotices) Execute(args []string) error {
 	}
 
 	var notices []*client.Notice
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	if cmd.Timeout != 0 {
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
-		notices, err = cmd.client.WaitNotices(ctx, cmd.Timeout, &options)
+		notices, err = cli.WaitNotices(ctx, cmd.Timeout, &options)
 	} else {
-		notices, err = cmd.client.Notices(&options)
+		notices, err = cli.Notices(&options)
 	}
 	if err != nil {
 		return err

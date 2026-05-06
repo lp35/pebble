@@ -40,7 +40,7 @@ Warnings expire automatically, and once expired they are forgotten.
 `
 
 type cmdWarnings struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	socketPath string
 
@@ -61,7 +61,7 @@ func init() {
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdWarnings{
-				client:     opts.Client,
+				getClient:  opts.GetClient,
 				socketPath: opts.SocketPath,
 			}
 		},
@@ -86,7 +86,11 @@ func (cmd *cmdWarnings) Execute(args []string) error {
 		options.After = state.WarningsLastOkayed
 	}
 
-	warnings, err := cmd.client.Notices(options)
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
+	warnings, err := cli.Notices(options)
 	if err != nil {
 		return fmt.Errorf("cannot get notices: %w", err)
 	}

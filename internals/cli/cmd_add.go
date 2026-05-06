@@ -32,7 +32,7 @@ label (or append if the label is not found).
 `
 
 type cmdAdd struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	Combine    bool `long:"combine"`
 	Inner      bool `long:"inner"`
@@ -52,7 +52,7 @@ func init() {
 			"--inner":   "Allow appending a new layer inside an existing subdirectory",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdAdd{client: opts.Client}
+			return &cmdAdd{getClient: opts.GetClient}
 		},
 	})
 }
@@ -65,13 +65,17 @@ func (cmd *cmdAdd) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	opts := client.AddLayerOptions{
 		Combine:   cmd.Combine,
 		Inner:     cmd.Inner,
 		Label:     cmd.Positional.Label,
 		LayerData: data,
 	}
-	err = cmd.client.AddLayer(&opts)
+	err = cli.AddLayer(&opts)
 	if err != nil {
 		return err
 	}

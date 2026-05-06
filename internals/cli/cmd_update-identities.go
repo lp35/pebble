@@ -43,7 +43,7 @@ For example, to add or update "alice" and ensure "bob" is removed, use
 `
 
 type cmdUpdateIdentities struct {
-	client *client.Client
+	getClient func() (*client.Client, error)
 
 	From    string `long:"from" required:"1"`
 	Replace bool   `long:"replace"`
@@ -59,7 +59,7 @@ func init() {
 			"--replace": "Replace (add or update) identities; remove null identities",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdUpdateIdentities{client: opts.Client}
+			return &cmdUpdateIdentities{getClient: opts.GetClient}
 		},
 	})
 }
@@ -74,14 +74,18 @@ func (cmd *cmdUpdateIdentities) Execute(args []string) error {
 		return err
 	}
 
+	cli, err := cmd.getClient()
+	if err != nil {
+		return err
+	}
 	if cmd.Replace {
-		err = cmd.client.ReplaceIdentities(identities)
+		err = cli.ReplaceIdentities(identities)
 		if err != nil {
 			return err
 		}
 		fmt.Fprintf(Stdout, "Replaced %s.\n", numItems(len(identities), "identity", "identities"))
 	} else {
-		err = cmd.client.UpdateIdentities(identities)
+		err = cli.UpdateIdentities(identities)
 		if err != nil {
 			return err
 		}

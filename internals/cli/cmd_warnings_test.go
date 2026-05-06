@@ -22,6 +22,7 @@ import (
 
 	"gopkg.in/check.v1"
 
+	"github.com/canonical/pebble/client"
 	"github.com/canonical/pebble/internals/cli"
 )
 
@@ -194,7 +195,7 @@ func (s *warningSuite) TestCommandWithWarnings(c *check.C) {
 			}\n`, latestWarningStr)
 	})
 
-	client := cli.Client()
+	pebbleClient := cli.Client()
 	expectedWarnings := map[int]string{
 		0: "",
 		1: "WARNING: There are new warnings. See 'pebble warnings'.\n",
@@ -209,13 +210,15 @@ func (s *warningSuite) TestCommandWithWarnings(c *check.C) {
 		}
 		runOpts := cli.RunOptionsForTest()
 		rest, err := cli.Parser(&cli.ParserOptions{
-			Client:     client,
+			GetClient: func() (*client.Client, error) {
+				return pebbleClient, nil
+			},
 			SocketPath: runOpts.ClientConfig.Socket,
 			PebbleDir:  runOpts.PebbleDir,
 		}).ParseArgs([]string{"version"})
 		c.Assert(err, check.IsNil)
 
-		latest := client.LatestWarningTime()
+		latest := pebbleClient.LatestWarningTime()
 		if expectedCount == 0 {
 			c.Check(latest, check.Equals, time.Time{})
 		} else {
