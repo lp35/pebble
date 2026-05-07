@@ -30,7 +30,7 @@ The mkdir command creates the specified directory.
 `
 
 type cmdMkdir struct {
-	withClient
+	WithClient
 
 	Parents    bool   `short:"p"`
 	Mode       string `short:"m"`
@@ -57,7 +57,7 @@ func init() {
 			"--group": "Use specified group name",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdMkdir{withClient: opts.Client}
+			return &cmdMkdir{WithClient: opts.Client}
 		},
 	})
 }
@@ -84,7 +84,7 @@ func (cmd *cmdMkdir) Execute(args []string) error {
 		opts.Permissions = os.FileMode(p)
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

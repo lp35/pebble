@@ -115,11 +115,14 @@ func ParserForTest() *flags.Parser {
 	runOpts := RunOptionsForTest()
 
 	return Parser(&ParserOptions{
-		Client: withClient{getClient: func() (*client.Client, error) {
-			return Client(), nil
+		Client: WithClient{GetClient: func() (*client.Client, error) {
+			cfg, err := runOpts.ClientConfig()
+			if err != nil {
+				return nil, err
+			}
+			return client.New(cfg)
 		}},
-		GetClientConfig: runOpts.ClientConfig,
-		PebbleDir:       runOpts.PebbleDir,
+		PebbleDir: runOpts.PebbleDir,
 	})
 }
 
@@ -128,10 +131,9 @@ func ParserForTest() *flags.Parser {
 func ParserWithClientForTest(c *client.Client) *flags.Parser {
 	runOpts := RunOptionsForTest()
 	return Parser(&ParserOptions{
-		Client: withClient{getClient: func() (*client.Client, error) {
+		Client: WithClient{GetClient: func() (*client.Client, error) {
 			return c, nil
 		}},
-		GetClientConfig: runOpts.ClientConfig,
-		PebbleDir:       runOpts.PebbleDir,
+		PebbleDir: runOpts.PebbleDir,
 	})
 }

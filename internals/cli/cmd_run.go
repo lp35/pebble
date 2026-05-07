@@ -73,8 +73,7 @@ var sharedRunEnterArgsHelp = map[string]string{
 }
 
 type cmdRun struct {
-	withClient
-	getConfig ClientConfigFunc
+	WithClient
 
 	pebbleDir string
 
@@ -89,8 +88,7 @@ func init() {
 		ArgsHelp:    sharedRunEnterArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdRun{
-				withClient: opts.Client,
-				getConfig:  opts.GetClientConfig,
+				WithClient: opts.Client,
 				pebbleDir:  opts.PebbleDir,
 			}
 		},
@@ -200,14 +198,14 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 		return err
 	}
 
-	cfg, err := rcmd.getConfig()
+	cli, err := rcmd.GetClient()
 	if err != nil {
-		return fmt.Errorf("cannot get client config: %w", err)
+		return fmt.Errorf("cannot create client: %w", err)
 	}
 
 	dopts := daemon.Options{
 		Dir:          rcmd.pebbleDir,
-		SocketPath:   cfg.Socket,
+		SocketPath:   cli.Config().Socket,
 		TLSOptions:   tlsstate.Options{Signer: idSigner},
 		HTTPAddress:  rcmd.HTTP,
 		HTTPSAddress: rcmd.HTTPS,
@@ -270,7 +268,7 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 		if err != nil {
 			return fmt.Errorf("cannot read identities: %w", err)
 		}
-		cli, err := rcmd.getClient()
+		cli, err := rcmd.GetClient()
 		if err != nil {
 			return err
 		}
@@ -292,7 +290,7 @@ func runDaemon(rcmd *cmdRun, ch chan os.Signal, ready chan<- func()) error {
 
 	if !rcmd.Hold {
 		// Start the default services (those configured with startup: enabled).
-		cli, err := rcmd.getClient()
+		cli, err := rcmd.GetClient()
 		if err != nil {
 			return err
 		}
@@ -343,7 +341,7 @@ out:
 	// Close the client idle connection to the server (self connection) before we
 	// start with the HTTP/HTTPS shutdown process. This will speed up the server
 	// shutdown, and allow the Pebble process to exit faster.
-	if cli, err := rcmd.getClient(); err == nil {
+	if cli, err := rcmd.GetClient(); err == nil {
 		cli.CloseIdleConnections()
 	}
 

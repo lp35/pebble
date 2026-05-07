@@ -29,7 +29,7 @@ The identity command shows details for a single identity in YAML format.
 `
 
 type cmdIdentity struct {
-	withClient
+	WithClient
 
 	formatMixin
 	Positional struct {
@@ -44,7 +44,7 @@ func init() {
 		Description: cmdIdentityDescription,
 		ArgsHelp:    formatArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdIdentity{withClient: opts.Client}
+			return &cmdIdentity{WithClient: opts.Client}
 		},
 	})
 }
@@ -54,7 +54,7 @@ func (cmd *cmdIdentity) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

@@ -30,7 +30,7 @@ The push command transfers a file to the remote system.
 `
 
 type cmdPush struct {
-	withClient
+	WithClient
 
 	Parents bool   `short:"p"`
 	Mode    string `short:"m"`
@@ -59,7 +59,7 @@ func init() {
 			"--group": "Use specified group name",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdPush{withClient: opts.Client}
+			return &cmdPush{WithClient: opts.Client}
 		},
 	})
 }
@@ -90,7 +90,7 @@ func (cmd *cmdPush) Execute(args []string) error {
 		permissions = st.Mode().Perm()
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/go-flags"
-
 )
 
 const cmdUpdateIdentitiesSummary = "Update or replace identities"
@@ -42,7 +41,7 @@ For example, to add or update "alice" and ensure "bob" is removed, use
 `
 
 type cmdUpdateIdentities struct {
-	withClient
+	WithClient
 
 	From    string `long:"from" required:"1"`
 	Replace bool   `long:"replace"`
@@ -58,7 +57,7 @@ func init() {
 			"--replace": "Replace (add or update) identities; remove null identities",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdUpdateIdentities{withClient: opts.Client}
+			return &cmdUpdateIdentities{WithClient: opts.Client}
 		},
 	})
 }
@@ -73,7 +72,7 @@ func (cmd *cmdUpdateIdentities) Execute(args []string) error {
 		return err
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

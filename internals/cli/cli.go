@@ -54,17 +54,16 @@ var ErrExtraArgs = fmt.Errorf("too many arguments for command")
 
 // CmdOptions exposes state made accessible during command execution.
 type CmdOptions struct {
-	Client          withClient
-	GetClientConfig ClientConfigFunc
-	Parser          *flags.Parser
-	PebbleDir       string
+	Client    WithClient
+	Parser    *flags.Parser
+	PebbleDir string
 }
 
-// withClient is embedded in commands that need an HTTP client.
+// WithClient is embedded in commands that need an HTTP client.
 // It is constructed once in Run() and passed through CmdOptions so that
 // commands can embed it directly without per-command construction.
-type withClient struct {
-	getClient func() (*client.Client, error)
+type WithClient struct {
+	GetClient func() (*client.Client, error)
 }
 
 // CmdInfo holds information needed by the CLI to execute commands and
@@ -158,9 +157,8 @@ type defaultOptions struct {
 }
 
 type ParserOptions struct {
-	Client          withClient
-	GetClientConfig ClientConfigFunc
-	PebbleDir       string
+	Client    WithClient
+	PebbleDir string
 }
 
 // Parser creates and populates a fresh parser.
@@ -170,7 +168,7 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Implement --version by default on every command
 	defaultOpts := defaultOptions{
 		Version: func() {
-			cli, err := opts.Client.getClient()
+			cli, err := opts.Client.GetClient()
 			if err != nil {
 				fmt.Fprintf(Stderr, "error: cannot create client: %v\n", err)
 				panic(&exitStatus{1})
@@ -203,10 +201,9 @@ func Parser(opts *ParserOptions) *flags.Parser {
 	// Add all commands
 	for _, c := range commands {
 		obj := c.New(&CmdOptions{
-			Client:          opts.Client,
-			GetClientConfig: opts.GetClientConfig,
-			Parser:          parser,
-			PebbleDir:       opts.PebbleDir,
+			Client:    opts.Client,
+			Parser:    parser,
+			PebbleDir: opts.PebbleDir,
 		})
 
 		var target *flags.Command
@@ -385,18 +382,9 @@ func Run(options *RunOptions) error {
 		}
 	}()
 
-	// Resolve the client config once up-front (cheap: env-var reads + struct
-	// copy, no network I/O). This gives commands their socket path and seeds
-	// the lazy client below.
-	cfg, err := localOptions.ClientConfig()
-	if err != nil {
-		return fmt.Errorf("cannot build client config: %v", err)
-	}
-
-	// Build a lazily-initialised, memoised client factory. The actual HTTP
-	// client (including TLS transport setup) is constructed at most once,
-	// on the first call to getClient(). Commands that don't need it
-	// (e.g. "pebble help") pay no cost.
+	// Build a lazily-initialised, memoised client factory. Both config
+	// resolution and client construction are deferred to the first call,
+	// so commands that don't need a client (e.g. "pebble help") pay no cost.
 	var (
 		clientOnce sync.Once
 		lazyClient *client.Client
@@ -404,15 +392,19 @@ func Run(options *RunOptions) error {
 	)
 	getClient := func() (*client.Client, error) {
 		clientOnce.Do(func() {
+			cfg, err := localOptions.ClientConfig()
+			if err != nil {
+				lazyErr = fmt.Errorf("cannot build client config: %v", err)
+				return
+			}
 			lazyClient, lazyErr = client.New(cfg)
 		})
 		return lazyClient, lazyErr
 	}
 
 	parser := Parser(&ParserOptions{
-		Client:          withClient{getClient: getClient},
-		GetClientConfig: localOptions.ClientConfig,
-		PebbleDir:       localOptions.PebbleDir,
+		Client:    WithClient{GetClient: getClient},
+		PebbleDir: localOptions.PebbleDir,
 	})
 	xtra, err := parser.Parse()
 	if err != nil {
@@ -446,13 +438,13 @@ func Run(options *RunOptions) error {
 		return nil
 	}
 
-	state, err := loadCLIState(cfg.Socket)
-	if err != nil {
-		return fmt.Errorf("cannot load CLI state: %w", err)
-	}
 	// Only check for warnings if a client was already materialised during
 	// command execution; avoid constructing one just for this check.
 	if lazyClient != nil {
+		state, err := loadCLIState(lazyClient.Config().Socket)
+		if err != nil {
+			return fmt.Errorf("cannot load CLI state: %w", err)
+		}
 		maybePresentWarnings(state.WarningsLastListed, lazyClient.LatestWarningTime())
 	}
 

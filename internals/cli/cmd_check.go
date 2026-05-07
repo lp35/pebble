@@ -30,7 +30,7 @@ The check command shows details for a single check.
 `
 
 type cmdCheck struct {
-	withClient
+	WithClient
 
 	formatMixin
 	Refresh bool `long:"refresh"`
@@ -56,7 +56,7 @@ func init() {
 			"--refresh": "Run the check immediately",
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdCheck{withClient: opts.Client}
+			return &cmdCheck{WithClient: opts.Client}
 		},
 	})
 }
@@ -66,7 +66,7 @@ func (cmd *cmdCheck) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

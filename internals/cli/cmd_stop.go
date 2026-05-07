@@ -27,7 +27,7 @@ any other service that depends on it, in the correct order.
 `
 
 type cmdStop struct {
-	withClient
+	WithClient
 
 	waitMixin
 	Positional struct {
@@ -42,7 +42,7 @@ func init() {
 		Description: cmdStopDescription,
 		ArgsHelp:    waitArgsHelp,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdStop{withClient: opts.Client}
+			return &cmdStop{WithClient: opts.Client}
 		},
 	})
 }
@@ -52,7 +52,7 @@ func (cmd cmdStop) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

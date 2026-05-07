@@ -40,8 +40,7 @@ another user's notices.
 `
 
 type cmdNotices struct {
-	withClient
-	getConfig ClientConfigFunc
+	WithClient
 
 	timeMixin
 	Users   client.NoticesUsers `long:"users"`
@@ -65,8 +64,7 @@ func init() {
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdNotices{
-				withClient: opts.Client,
-				getConfig:  opts.GetClientConfig,
+				WithClient: opts.Client,
 			}
 		},
 	})
@@ -77,11 +75,11 @@ func (cmd *cmdNotices) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cfg, err := cmd.getConfig()
+	cli, err := cmd.GetClient()
 	if err != nil {
-		return fmt.Errorf("cannot get client config: %w", err)
+		return err
 	}
-	state, err := loadCLIState(cfg.Socket)
+	state, err := loadCLIState(cli.Config().Socket)
 	if err != nil {
 		return fmt.Errorf("cannot load CLI state: %w", err)
 	}
@@ -94,10 +92,6 @@ func (cmd *cmdNotices) Execute(args []string) error {
 	}
 
 	var notices []*client.Notice
-	cli, err := cmd.getClient()
-	if err != nil {
-		return err
-	}
 	if cmd.Timeout != 0 {
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
@@ -144,7 +138,7 @@ func (cmd *cmdNotices) Execute(args []string) error {
 	}
 
 	state.NoticesLastListed = notices[len(notices)-1].LastRepeated
-	err = saveCLIState(cfg.Socket, state)
+	err = saveCLIState(cli.Config().Socket, state)
 	if err != nil {
 		return fmt.Errorf("cannot save CLI state: %w", err)
 	}

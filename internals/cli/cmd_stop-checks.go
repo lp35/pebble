@@ -31,7 +31,7 @@ no effect.
 `
 
 type cmdStopChecks struct {
-	withClient
+	WithClient
 
 	Positional struct {
 		Checks []string `positional-arg-name:"<check>" required:"1"`
@@ -44,7 +44,7 @@ func init() {
 		Summary:     cmdStopChecksSummary,
 		Description: cmdStopChecksDescription,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdStopChecks{withClient: opts.Client}
+			return &cmdStopChecks{WithClient: opts.Client}
 		},
 	})
 }
@@ -54,7 +54,7 @@ func (cmd cmdStopChecks) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

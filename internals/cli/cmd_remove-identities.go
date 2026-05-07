@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/go-flags"
-
 )
 
 const cmdRemoveIdentitiesSummary = "Remove identities"
@@ -34,7 +33,7 @@ the YAML input. For example, to remove "alice" and "bob", use this YAML:
 `
 
 type cmdRemoveIdentities struct {
-	withClient
+	WithClient
 
 	From string `long:"from" required:"1"`
 }
@@ -48,7 +47,7 @@ func init() {
 			"--from": "Path of YAML file to read identities from (required)",
 		},
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdRemoveIdentities{withClient: opts.Client}
+			return &cmdRemoveIdentities{WithClient: opts.Client}
 		},
 	})
 }
@@ -69,7 +68,7 @@ func (cmd *cmdRemoveIdentities) Execute(args []string) error {
 		}
 		identityNames[name] = struct{}{}
 	}
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

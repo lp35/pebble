@@ -32,7 +32,7 @@ arguments.
 `
 
 type cmdChecks struct {
-	withClient
+	WithClient
 
 	formatMixin
 	//lint:ignore SA5008 "choice" tag is intentionally duplicated
@@ -51,7 +51,7 @@ func init() {
 			"--level": "Check level to filter for",
 		}, formatArgsHelp),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdChecks{withClient: opts.Client}
+			return &cmdChecks{WithClient: opts.Client}
 		},
 	})
 }
@@ -61,7 +61,7 @@ func (cmd *cmdChecks) Execute(args []string) error {
 		return ErrExtraArgs
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

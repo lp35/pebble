@@ -35,7 +35,7 @@ may be specified for the last path element.
 `
 
 type cmdLs struct {
-	withClient
+	WithClient
 
 	timeMixin
 	formatMixin
@@ -56,7 +56,7 @@ func init() {
 			"-l": "Use a long listing format",
 		}),
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdLs{withClient: opts.Client}
+			return &cmdLs{WithClient: opts.Client}
 		},
 	})
 }
@@ -127,7 +127,7 @@ func (cmd *cmdLs) Execute(args []string) error {
 		return err
 	}
 
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

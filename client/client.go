@@ -210,6 +210,7 @@ type Config struct {
 
 // A Client knows how to talk to the Pebble daemon.
 type Client struct {
+	config    Config
 	requester Requester
 
 	maintenance   error
@@ -253,7 +254,7 @@ func New(config *Config) (*Client, error) {
 		localConfig = *config
 	}
 
-	client := &Client{}
+	client := &Client{config: localConfig}
 	requester, err := newDefaultRequester(client, &localConfig)
 	if err != nil {
 		return nil, err
@@ -269,6 +270,11 @@ func New(config *Config) (*Client, error) {
 
 func (client *Client) Requester() Requester {
 	return client.requester
+}
+
+// Config returns the configuration used to create this client.
+func (client *Client) Config() Config {
+	return client.config
 }
 
 func (client *Client) getTaskWebsocket(taskID, websocketID string) (clientWebsocket, error) {

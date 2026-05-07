@@ -27,7 +27,7 @@ format. Layers are combined according to the override rules defined in them.
 `
 
 type cmdPlan struct {
-	withClient
+	WithClient
 }
 
 func init() {
@@ -36,7 +36,7 @@ func init() {
 		Summary:     cmdPlanSummary,
 		Description: cmdPlanDescription,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdPlan{withClient: opts.Client}
+			return &cmdPlan{WithClient: opts.Client}
 		},
 	})
 }
@@ -45,7 +45,7 @@ func (cmd *cmdPlan) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
 	}
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}

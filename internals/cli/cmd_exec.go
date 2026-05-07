@@ -43,7 +43,7 @@ arguments using "--", for example:
 `
 
 type cmdExec struct {
-	withClient
+	WithClient
 
 	WorkingDir     string        `short:"w"`
 	Env            []string      `long:"env"`
@@ -83,7 +83,7 @@ func init() {
 		},
 		PassAfterNonOption: true,
 		New: func(opts *CmdOptions) flags.Commander {
-			return &cmdExec{withClient: opts.Client}
+			return &cmdExec{WithClient: opts.Client}
 		},
 	})
 }
@@ -186,7 +186,7 @@ func (cmd *cmdExec) Execute(args []string) error {
 	}
 
 	// Start the command.
-	cli, err := cmd.getClient()
+	cli, err := cmd.GetClient()
 	if err != nil {
 		return err
 	}
